@@ -4,6 +4,7 @@
 #include <string.h>
 
 typedef unsigned int uint;
+typedef unsigned char byte;
 
 typedef struct {
   uint position_x, position_y;
@@ -29,11 +30,12 @@ enum LurkerStatus {
 typedef struct {
   uint center_x, center_y;
   uint growth_vel_x, growth_vel_y;
-  uint radius_x, radius_y;
   uint total_door_count;
-  uint block_l, block_r, block_t, block_b;
-  uint is_player_spawn;
-  uint is_end_objective_room;
+  float radius_l, radius_r, radius_t, radius_b;
+  byte block_l, block_r, block_t, block_b;
+  byte is_player_spawn;
+  byte is_end_objective_room;
+  byte is_room_finished;
 } RoomSeed;
 
 typedef struct {
@@ -45,14 +47,15 @@ typedef struct {
   uint lurker_capacity;
   RoomSeed* room_seeds;
   uint room_seed_count;
+  uint room_seeds_finished;
 } Arena;
 
 typedef struct {
   uint size_x, size_y;
   uint player_x, player_y; /* may differ from Arena, needed for View */
-  uint enable_fog_of_war;
-  uint enable_coloring;
-  uint enable_shading;
+  byte enable_fog_of_war;
+  byte enable_coloring;
+  byte enable_shading;
   char* data;
 } Canvas;
 
@@ -105,6 +108,7 @@ void init_arena(Arena* arena, Player* player) {
   float assumed_wall_ratio = 0.30;
   uint seed_count = round((float)total_v / avg_room_v * assumed_wall_ratio);
   arena->room_seed_count = seed_count;
+  arena->room_seeds_finished = 0;
   arena->room_seeds = malloc(arena->room_seed_count * sizeof(RoomSeed));
 }
 
@@ -126,7 +130,7 @@ void generate_arena(Arena* arena) {
       RoomSeed checked_seed = arena->room_seeds[j];
       uint dist_x = abs((int)checked_seed.center_x - (int)pos_x);
       uint dist_y = abs((int)checked_seed.center_y - (int)pos_y);
-      if (dist_x < 4 || dist_y < 4) {
+      if (dist_x < 3 || dist_y < 3) {
         goto retry_point_gen;
       }
     }
@@ -147,16 +151,94 @@ void generate_arena(Arena* arena) {
     // TODO: Go through all and set the ones on opposite edges
     new_seed.is_player_spawn = 0;
     new_seed.is_end_objective_room = 0;
+    new_seed.is_room_finished = 0;
 
-    new_seed.radius_x = 1;
-    new_seed.radius_y = 1;
+    new_seed.radius_l = 1;
+    new_seed.radius_r = 1;
+    new_seed.radius_t = 1;
+    new_seed.radius_b = 1;
 
     new_seed.total_door_count = 0;
 
     arena->room_seeds[i] = new_seed;
   }
 
-  // TODO: Seed growing loop
+  while (arena->room_seeds_finished < arena->room_seed_count) {
+    for (i = 0; i < arena->room_seed_count; i++) {
+      RoomSeed* seed = &arena->room_seeds[i];
+
+      if (seed->is_room_finished) {
+        continue;
+      }
+
+      /* TBD
+      // Classic bounds check against all other seeds
+      // - First check lower's low vs higher's high, then lower's high etc
+      // - If that aligns (collides), check in the other direction
+      // Exampel
+      // - Checking horizontal axis collisions
+      // - Filter all others for [self.x;self.x+self.vel.x] bounds
+      // - Check filtered for: 1 of 4 points between 2 opposite points:
+      // - In total always <6 checks
+      //
+      //       ck1
+      //      |-v-|
+      //      | v |
+      //      | o---- -
+      // - ---o |
+      //      | |
+      // - ---o |
+      //        o---- -
+      //
+      //     --o
+      // - --  |
+      //       |
+      // - --o<|<< ck2
+      //     --o
+      //
+      //     --o
+      // - --o<|<< ck3
+      //       |
+      // - --  |
+      //     --o
+      //
+      //     <<o<< ck4
+      // - --o--
+      //     |
+      // - --o--
+      //
+      //
+      //
+      // - --o--
+      //     |
+      // - --o--
+      //     <<o<< ck5
+      */
+
+      if (!seed->block_t) {
+        seed->radius_t -= seed->growth_vel_y;
+      }
+
+      if (!seed->block_b) {
+        seed->radius_b += seed->growth_vel_y;
+      }
+
+      if (!seed->block_l) {
+        seed->radius_l -= seed->growth_vel_x;
+      }
+
+      if (!seed->block_r) {
+        seed->radius_r += seed->growth_vel_x;
+      }
+
+      if (seed->block_b && seed->block_t && seed->block_l && seed->block_r) {
+        arena->room_seeds_finished += 1;
+        seed->is_room_finished = 1;
+      }
+    }
+  }
+
+  // TODO: Create passages
 }
 
 void init_lurkers(Arena* arena) {
