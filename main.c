@@ -11,10 +11,23 @@ typedef struct {
 typedef struct {
   float position_x, position_y;
   float velocity, min_velocity, max_velocity;
-  float azimuth_uvec_x, azimuth_uvec_y;
   float detection_cone_halfangle_rad;
+  float azimuth_target_rad, azimuth_current_rad;
   uint status;
 } Lurker;
+
+/* Office movement aligned to walls (0, 45deg, 90deg, ...)
+// Cave movement slow and curvy, slaloming constantly
+// Rotation is an alignment change in office space
+*/
+enum LurkerStatus {
+  /* Placeholder */
+  STANDING = 0,
+  /* Azimuth unaligned, changing frequently (~1s?) */
+  WALKING_CAVE,
+  /* Azimuth aligned to N*45d, changing rarely (~3s?) */
+  WALKING_OFFICE,
+};
 
 typedef struct {
   uint size_x, size_y;
@@ -58,6 +71,7 @@ enum ArenaTile {
 };
 
 const uint ARENA_SIZE = 16;
+const float PI = 3.14159;
 
 void init_arena(Arena* arena, Player* player) {
   arena->player = player;
@@ -86,7 +100,23 @@ void generate_arena(Arena* arena) {
   //   - Place enemies and objectives randomly around
   // - [Perlin is hard in C !!!] so don't do it, log rand is enough for rocks
   //   - Poor man's perlin is 3 layers of variable smoothing 1d (!!!) rnd
-  */
+  // - Room spec
+  //   - Will start with 5x5 for both entry and exit
+  //   - Supposing total volume V, aiming for 12x12 (V=144) rooms on avg.
+  //   - Could do a "stack-on" algo? Where we have 1 room in center,
+  //     then assuming N padding, we start the next room N tiles from it.
+  //     We grow it out until we reach the map boundary.
+  //   - Alternatively, we lay out some kind of reference points,
+  //     connect them with variable width wall, and the rest is open office?
+  //   - EVEN BETTER, a seed growth algo
+  //     - We plant N seeds in the map
+  //     - Each seed growths with variable speed
+  //     - Once seed encounters a wall (another seed's growth), it stops
+  //       growing in that particular direction, but continues in others.
+  //     - At the end, we place 1 door for every seed, but min 2 per room
+  //
+*/
+
   memset(arena->data, WALL, arena->size_x * arena->size_y * sizeof(uint));
 }
 
@@ -113,18 +143,38 @@ void init_lurkers(Arena* arena) {
 
     Lurker new_lurker;
 
+    new_lurker.detection_cone_halfangle_rad = PI / 3;
+    new_lurker.min_velocity = 1.5;
+    new_lurker.max_velocity = 3.0;
+    new_lurker.position_x = pos_x;
+    new_lurker.position_y = pos_y;
+    new_lurker.velocity = 1.5;
+    new_lurker.status = WALKING_OFFICE;
+
     arena->lurkers[arena->lurker_count] = new_lurker;
     arena->lurker_count += 1;
   }
 }
 
-void update_lurkers(Lurker* lurkers, float time_delta) {
+void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta) {
   /* NOTE: Need to use raycasting to prevent wall penetration
   // Would be pretty if rays were higher-res than walls, so directly to canvas
   // In patrol mode, add preference for the lurker to snap to multiples of 45d
   // Add jitter to lurker's rotation, this way it's more realistic and prettier
   // Energy remains constant, when moving slower, it will turns faster.
+  // 1. When azimuth target far off from actual, slow down
+  // 2. As lurker is slow, it can rotate faster
+  // 3. As alignment increases, so does speed
+  // NOTE: Using accel would yield more realistic look, i can imagine stiff rot
+  // looking weird, unnatural, will fix this with azimuth target jitter
+  // (do we need p.? it will change direction quickly either way)
   */
+
+  int i;
+  for (i = 0; i < lurker_count; i++) {
+    Lurker* lurker = &lurkers[i];
+    /* TBD */
+  }
 }
 
 /* Arena:
@@ -162,7 +212,7 @@ int main() {
     // - Render (see if overwriting rather than redrawing is feasible)
     */
 
-    update_lurkers(arena.lurkers, time_delta);
+    update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
   }
 
   /* DEBUG: Single frame render */
