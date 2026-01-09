@@ -27,12 +27,24 @@ enum LurkerStatus {
 };
 
 typedef struct {
+  uint center_x, center_y;
+  uint growth_vel_x, growth_vel_y;
+  uint radius_x, radius_y;
+  uint total_door_count;
+  uint block_l, block_r, block_t, block_b;
+  uint is_player_spawn;
+  uint is_end_objective_room;
+} RoomSeed;
+
+typedef struct {
   uint size_x, size_y;
   uint* data;
   Player* player;
   Lurker* lurkers;
   uint lurker_count;
   uint lurker_capacity;
+  RoomSeed* room_seeds;
+  uint room_seed_count;
 } Arena;
 
 typedef struct {
@@ -67,18 +79,15 @@ enum ArenaTile {
   END_OBJECTIVE,
 };
 
-typedef struct {
-  uint center_x, center_y;
-  uint growth_vel_x, growth_vel_y;
-  uint radius_x, radius_y;
-  uint total_door_count;
-  uint block_l, block_r, block_t, block_b;
-  uint is_player_spawn;
-  uint is_end_objective_room;
-} RoomSeed;
-
 const uint ARENA_SIZE = 60;
 const float PI = 3.14159;
+const uint AVG_ROOM_SIDE = 12;
+
+float rand_f(float min, float max) {
+  return ((float)rand() / RAND_MAX) * (max - min) + min;
+}
+
+float rand_ui(uint min, uint max) { return rand() % (max - min) + min; }
 
 void init_arena(Arena* arena, Player* player) {
   arena->player = player;
@@ -90,24 +99,64 @@ void init_arena(Arena* arena, Player* player) {
   arena->size_x = ARENA_SIZE;
   arena->size_y = ARENA_SIZE;
   arena->data = malloc(ARENA_SIZE * ARENA_SIZE * sizeof(uint));
+
+  uint total_v = arena->size_x * arena->size_y;
+  uint avg_room_v = AVG_ROOM_SIDE * AVG_ROOM_SIDE;
+  float assumed_wall_ratio = 0.30;
+  uint seed_count = round((float)total_v / avg_room_v * assumed_wall_ratio);
+  arena->room_seed_count = seed_count;
+  arena->room_seeds = malloc(arena->room_seed_count * sizeof(RoomSeed));
 }
 
 void generate_arena(Arena* arena) {
   uint total_v = arena->size_x * arena->size_y;
-  uint avg_room_v = 12 * 12;
-  float assumed_wall_ratio = 0.30;
-  uint seed_count = round((float)total_v / avg_room_v * assumed_wall_ratio);
   uint edge_padding = 10;
+  uint max_usable_rng_x = arena->size_x - edge_padding;
+  uint max_usable_rng_y = arena->size_y - edge_padding;
 
   memset(arena->data, WALL, total_v * sizeof(uint));
 
-  // TODO: Make sure points aren't too close together, will ignore this for now
+  uint i, j, pos_x, pos_y;
+  for (i = 0; i < arena->room_seed_count; i++) {
+  retry_point_gen:
+    pos_x = rand_ui(edge_padding, max_usable_rng_x);
+    pos_y = rand_ui(edge_padding, max_usable_rng_y);
 
-  int i;
-  for (i = 0; i < seed_count; i++) {
-    uint pos_x = rand() % (arena->size_x - edge_padding * 2) + edge_padding;
-    uint pos_y = rand() % (arena->size_y - edge_padding * 2) + edge_padding;
+    for (j = 0; j < i; j++) {
+      RoomSeed checked_seed = arena->room_seeds[j];
+      uint dist_x = abs((int)checked_seed.center_x - (int)pos_x);
+      uint dist_y = abs((int)checked_seed.center_y - (int)pos_y);
+      if (dist_x < 4 || dist_y < 4) {
+        goto retry_point_gen;
+      }
+    }
+
+    RoomSeed new_seed;
+
+    new_seed.block_b = 0;
+    new_seed.block_t = 0;
+    new_seed.block_l = 0;
+    new_seed.block_r = 0;
+
+    new_seed.center_x = pos_x;
+    new_seed.center_y = pos_y;
+
+    new_seed.growth_vel_x = rand_f(.2, .5);
+    new_seed.growth_vel_y = rand_f(.2, .5);
+
+    // TODO: Go through all and set the ones on opposite edges
+    new_seed.is_player_spawn = 0;
+    new_seed.is_end_objective_room = 0;
+
+    new_seed.radius_x = 1;
+    new_seed.radius_y = 1;
+
+    new_seed.total_door_count = 0;
+
+    arena->room_seeds[i] = new_seed;
   }
+
+  // TODO: Seed growing loop
 }
 
 void init_lurkers(Arena* arena) {
@@ -157,7 +206,7 @@ void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta) {
   // 3. As alignment increases, so does speed
   // NOTE: Using accel would yield more realistic look, i can imagine stiff rot
   // looking weird, unnatural, will fix this with azimuth target jitter
-  // (do we need p.? it will change direction quickly either way)
+  // Is p-derived rebound needed? No, direction changes quickly either way
   */
 
   int i;
