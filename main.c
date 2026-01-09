@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,10 +17,6 @@ typedef struct {
   uint status;
 } Lurker;
 
-/* Office movement aligned to walls (0, 45deg, 90deg, ...)
-// Cave movement slow and curvy, slaloming constantly
-// Rotation is an alignment change in office space
-*/
 enum LurkerStatus {
   /* Placeholder */
   STANDING = 0,
@@ -70,7 +67,17 @@ enum ArenaTile {
   END_OBJECTIVE,
 };
 
-const uint ARENA_SIZE = 16;
+typedef struct {
+  uint center_x, center_y;
+  uint growth_vel_x, growth_vel_y;
+  uint radius_x, radius_y;
+  uint total_door_count;
+  uint block_l, block_r, block_t, block_b;
+  uint is_player_spawn;
+  uint is_end_objective_room;
+} RoomSeed;
+
+const uint ARENA_SIZE = 60;
 const float PI = 3.14159;
 
 void init_arena(Arena* arena, Player* player) {
@@ -86,38 +93,21 @@ void init_arena(Arena* arena, Player* player) {
 }
 
 void generate_arena(Arena* arena) {
-  /* Map generation NOTES:
-  // - I was initially imagining going for caves
-  // - Rectangular office style could be more interesting
-  //   - Rectangle walls can be mangled to fall back to the cave idea
-  //   - This would actually make for an interesting "neglected underground lab"
-  //   - Office elements could be mixed with rocky elements, water and flora
-  // - How do we want to place the rooms?
-  //   - One at start, one at end
-  //   - Random all over the place
-  //   - Connect with corridors (3-5w for n+1-long, 1w for 1-long)
-  //   - Play with density to minimize corridors
-  //   - Place enemies and objectives randomly around
-  // - [Perlin is hard in C !!!] so don't do it, log rand is enough for rocks
-  //   - Poor man's perlin is 3 layers of variable smoothing 1d (!!!) rnd
-  // - Room spec
-  //   - Will start with 5x5 for both entry and exit
-  //   - Supposing total volume V, aiming for 12x12 (V=144) rooms on avg.
-  //   - Could do a "stack-on" algo? Where we have 1 room in center,
-  //     then assuming N padding, we start the next room N tiles from it.
-  //     We grow it out until we reach the map boundary.
-  //   - Alternatively, we lay out some kind of reference points,
-  //     connect them with variable width wall, and the rest is open office?
-  //   - EVEN BETTER, a seed growth algo
-  //     - We plant N seeds in the map
-  //     - Each seed growths with variable speed
-  //     - Once seed encounters a wall (another seed's growth), it stops
-  //       growing in that particular direction, but continues in others.
-  //     - At the end, we place 1 door for every seed, but min 2 per room
-  //
-*/
+  uint total_v = arena->size_x * arena->size_y;
+  uint avg_room_v = 12 * 12;
+  float assumed_wall_ratio = 0.30;
+  uint seed_count = round((float)total_v / avg_room_v * assumed_wall_ratio);
+  uint edge_padding = 10;
 
-  memset(arena->data, WALL, arena->size_x * arena->size_y * sizeof(uint));
+  memset(arena->data, WALL, total_v * sizeof(uint));
+
+  // TODO: Make sure points aren't too close together, will ignore this for now
+
+  int i;
+  for (i = 0; i < seed_count; i++) {
+    uint pos_x = rand() % (arena->size_x - edge_padding * 2) + edge_padding;
+    uint pos_y = rand() % (arena->size_y - edge_padding * 2) + edge_padding;
+  }
 }
 
 void init_lurkers(Arena* arena) {
@@ -177,21 +167,6 @@ void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta) {
   }
 }
 
-/* Arena:
-// - walls
-// - entity registrar
-// Canvas:
-// - """shaded""" Arena view (TBD, i've done this in rust before, need to port)
-// - fog of war effect
-// - all enemies and their effects
-// View:
-// - a cutout of the Canvas centered on Player
-// Player:
-// - metadata for player
-// Lurker
-// - metaata for enemy
-*/
-
 int main() {
   Arena arena;
   Player player;
@@ -243,8 +218,8 @@ int main() {
           break;
       }
 
-      /* FIXME: 2x as workaround for 1:2 font dimensions
-      // NOTE: This will be redundant once Canvas works
+      /* 2x as workaround for 1:2 font dimensions
+      // This will be redundant once Canvas works
       */
       putchar(repr);
       putchar(repr);
@@ -258,3 +233,65 @@ int main() {
 
   return 0;
 }
+
+// -=-=-=- Development note archive -=-=-=-
+
+/* Map generation:
+// - I was initially imagining going for caves
+// - Rectangular office style could be more interesting
+//   - Rectangle walls can be mangled to fall back to the cave idea
+//   - This would actually make for an interesting "neglected underground lab"
+//   - Office elements could be mixed with rocky elements, water and flora
+// - How do we want to place the rooms?
+//   - One at start, one at end
+//   - Random all over the place
+//   - Connect with corridors (3-5w for n+1-long, 1w for 1-long)
+//   - Play with density to minimize corridors
+//   - Place enemies and objectives randomly around
+// - [Perlin is hard in C !!!] so don't do it, log rand is enough for rocks
+//   - Poor man's perlin is 3 layers of variable smoothing 1d (!!!) rnd
+// - Room spec
+//   - Will start with 5x5 for both entry and exit
+//   - Supposing total volume V, aiming for 12x12 (V=144) rooms on avg.
+//   - Could do a "stack-on" algo? Where we have 1 room in center,
+//     then assuming N padding, we start the next room N tiles from it.
+//     We grow it out until we reach the map boundary.
+//   - Alternatively, we lay out some kind of reference points,
+//     connect them with variable width wall, and the rest is open office?
+//   - EVEN BETTER, a seed growth algo
+//     - We plant N seeds in the map
+//     - Each seed growths with variable speed
+//     - Once seed encounters a wall (another seed's growth), it stops
+//       growing in that particular direction, but continues in others.
+//     - At the end, we place 1 door for every seed, but min 2 per room
+//     - While "meet halfway" would be optimal, I have no idea how
+//       complex it is to implement, so i will just do a slow-stepping iter.
+//     - Aiming for 144 V avg. Under ideal conditions, avail space
+//       is 3600 (for 60x60), that's 25 room seeds.
+//     - If we assume walls take 30% of the total V, seeds move down to 18.
+//     - Perimeter can flood the walls (up to 1 thickness) with cave floor.
+//       - We can force this behaviour by removing seeds outside an inner oval
+//       - While also preventing growth outside of said oval
+//       - Expanding on the story, collect keys/intel then escape?
+*/
+
+/* Arena:
+// - walls
+// - entity registrar
+// Canvas:
+// - """shaded""" Arena view (TBD, i've done this in rust before, need to port)
+// - fog of war effect
+// - all enemies and their effects
+// View:
+// - a cutout of the Canvas centered on Player
+// Player:
+// - metadata for player
+// Lurker
+// - metaata for enemy
+*/
+
+/* Lurker:
+//  Office movement aligned to walls (0, 45deg, 90deg, ...)
+//  Cave movement slow and curvy, slaloming constantly
+//  Rotation is an alignment change in office space
+*/
