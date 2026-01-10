@@ -148,7 +148,7 @@ void generate_arena(Arena* arena) {
     new_seed.growth_vel_x = rand_f(.2, .5);
     new_seed.growth_vel_y = rand_f(.2, .5);
 
-    // TODO: Go through all and set the ones on opposite edges
+    /* TODO: Go through all and set the ones on opposite edges */
     new_seed.is_player_spawn = 0;
     new_seed.is_end_objective_room = 0;
     new_seed.is_room_finished = 0;
@@ -238,7 +238,7 @@ void generate_arena(Arena* arena) {
     }
   }
 
-  // TODO: Create passages
+  /* TODO: Create passages */
 }
 
 void init_lurkers(Arena* arena) {
@@ -248,9 +248,10 @@ void init_lurkers(Arena* arena) {
       continue;
     }
 
-    // TODO: Move entire lurker init logic to map generation
+    /* TODO: Move entire lurker init logic to map generation
     // - Removes need for LURKER_SPAWN, PLAYER_SPAWN, etc
     // - Just as simple in handling if we isolate to add_lurker
+    */
 
     arena->data[i] = FLOOR;
 
@@ -365,9 +366,9 @@ int main() {
   return 0;
 }
 
-// -=-=-=- Development note archive -=-=-=-
+/* -=-=-=- Development note archive -=-=-=-
 
-/* Map generation:
+// Map generation:
 // - I was initially imagining going for caves
 // - Rectangular office style could be more interesting
 //   - Rectangle walls can be mangled to fall back to the cave idea
