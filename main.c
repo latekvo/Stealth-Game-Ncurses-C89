@@ -85,6 +85,35 @@ const uint ARENA_SIZE = 60;
 const float PI = 3.14159;
 const uint AVG_ROOM_SIDE = 12;
 
+byte are_rooms_overlapping(RoomSeed* a, RoomSeed* b, float pad_t, float pad_r,
+                           float pad_b, float pad_l) {
+  /* TODO: These could (should?) be cached */
+  float a_r = a->center_x + a->radius_r + pad_r;
+  float a_l = a->center_x - a->radius_l - pad_l;
+  float a_t = a->center_y + a->radius_t + pad_t;
+  float a_b = a->center_y - a->radius_b - pad_b;
+  float b_r = b->center_x + b->radius_r;
+  float b_l = b->center_x - b->radius_l;
+  float b_t = b->center_y + b->radius_t;
+  float b_b = b->center_y - b->radius_b;
+
+  /* Either b's vertex within a's horizontal path
+  // AND either b's vertex within a's vertical path
+  */
+
+  if ((b_t < a_t && b_t > a_b || b_b < a_t && b_b > a_b) &&
+      (b_l < a_r && b_l > a_l || b_r < a_r && b_r > a_l)) {
+    return 1;
+  }
+
+  /* FIXME: Bounds checks shouldn't be here, but it's the simplest for now */
+  if (a_r >= ARENA_SIZE || a_l <= 0 || a_t >= ARENA_SIZE || a_b < 0) {
+    return 1;
+  }
+
+  return 0;
+}
+
 float rand_f(float min, float max) {
   return ((float)rand() / RAND_MAX) * (max - min) + min;
 }
@@ -165,8 +194,6 @@ void generate_arena(Arena* arena) {
   }
 
   while (arena->room_seeds_finished < arena->room_seed_count) {
-    printf("ITERATING ROOM SEEDING, FINISHED: %u\n",
-           arena->room_seeds_finished);
     for (i = 0; i < arena->room_seed_count; i++) {
       RoomSeed* seed = &arena->room_seeds[i];
 
@@ -174,47 +201,32 @@ void generate_arena(Arena* arena) {
         continue;
       }
 
-      /* TBD
-      // Classic bounds check against all other seeds
-      // - First check lower's low vs higher's high, then lower's high etc
-      // - If that aligns (collides), check in the other direction
-      // Exampel
-      // - Checking horizontal axis collisions
-      // - Filter all others for [self.x;self.x+self.vel.x] bounds
-      // - Check filtered for: 1 of 4 points between 2 opposite points:
-      // - In total always <6 checks
-      //
-      //       ck1
-      //      |-v-|
-      //      | v |
-      //      | o---- -
-      // - ---o |
-      //      | |
-      // - ---o |
-      //        o---- -
-      //
-      //     --o
-      // - --  |
-      //       |
-      // - --o<|<< ck2
-      //     --o
-      //
-      //     --o
-      // - --o<|<< ck3
-      //       |
-      // - --  |
-      //     --o
-      //
-      //     <<o<< ck4
-      // - --o--
-      //     |
-      // - --o--
-      //
-      // - --o--
-      //     |
-      // - --o--
-      //     <<o<< ck5
-      */
+      float padding = 2.0;
+
+      uint j;
+      for (j = 0; j < i; j++) {
+        RoomSeed* ck_seed = &arena->room_seeds[j];
+
+        /* Note: Could set block_* status for the ck_* too, but currently
+        //       doing that doesn't skip any logic, so no point in doing so.
+        */
+
+        if (are_rooms_overlapping(seed, ck_seed, padding, 0., 0., 0.)) {
+          seed->block_t = 1;
+        }
+
+        if (are_rooms_overlapping(seed, ck_seed, 0., padding, 0., 0.)) {
+          seed->block_r = 1;
+        }
+
+        if (are_rooms_overlapping(seed, ck_seed, 0., 0., padding, 0.)) {
+          seed->block_b = 1;
+        }
+
+        if (are_rooms_overlapping(seed, ck_seed, 0., 0., 0., padding)) {
+          seed->block_l = 1;
+        }
+      }
 
       if (!seed->block_t) {
         seed->radius_t -= seed->growth_vel_y;
@@ -241,7 +253,29 @@ void generate_arena(Arena* arena) {
 
   /* TODO: Create passages */
 
-  /* TODO: Apply abstract structs to arena->data */
+  for (i = 0; i < arena->room_seed_count; i++) {
+    RoomSeed seed = arena->room_seeds[i];
+
+    float x_start_f = seed.center_x - seed.radius_l;
+    float x_end_f = seed.center_x + seed.radius_r;
+    float y_start_f = seed.center_y - seed.radius_b;
+    float y_end_f = seed.center_y + seed.radius_t;
+
+    uint x_start = (uint)(x_start_f + 1.f);
+    uint x_end = (uint)x_end_f;
+    uint y_start = (uint)(y_start_f + 1.f);
+    uint y_end = (uint)y_end_f;
+
+    uint x_span = x_end - x_start;
+
+    uint y;
+    for (y = y_start; y <= y_end; y++) {
+      memset(arena->data, FLOOR, x_span);
+    }
+
+    uint lurker_spawn_idx = seed.center_x + seed.center_y * arena->size_x;
+    arena->data[lurker_spawn_idx] = LURKER_SPAWN;
+  }
 }
 
 void init_lurkers(Arena* arena) {
@@ -429,4 +463,46 @@ int main() {
 //  Office movement aligned to walls (0, 45deg, 90deg, ...)
 //  Cave movement slow and curvy, slaloming constantly
 //  Rotation is an alignment change in office space
+*/
+
+/* TBD
+// Classic bounds check against all other seeds
+// - First check lower's low vs higher's high, then lower's high etc
+// - If that aligns (collides), check in the other direction
+// Exampel
+// - Checking horizontal axis collisions
+// - Filter all others for [self.x;self.x+self.vel.x] bounds
+// - Check filtered for: 1 of 4 points between 2 opposite points:
+// - In total always <6 checks
+//
+//       ck1
+//      |-v-|
+//      | v |
+//      | o---- -
+// - ---o |
+//      | |
+// - ---o |
+//        o---- -
+//
+//     --o
+// - --  |
+//       |
+// - --o<|<< ck2
+//     --o
+//
+//     --o
+// - --o<|<< ck3
+//       |
+// - --  |
+//     --o
+//
+//     <<o<< ck4
+// - --o--
+//     |
+// - --o--
+//
+// - --o--
+//     |
+// - --o--
+//     <<o<< ck5
 */
