@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +39,7 @@ typedef struct {
 
 typedef struct {
   uint size_x, size_y;
-  uint* data;
+  byte* data;
   Player* player;
   Lurker* lurkers;
   uint lurker_count;
@@ -106,7 +105,9 @@ void init_arena(Arena* arena, Player* player) {
   uint total_v = arena->size_x * arena->size_y;
   uint avg_room_v = AVG_ROOM_SIDE * AVG_ROOM_SIDE;
   float assumed_wall_ratio = 0.30;
-  uint seed_count = round((float)total_v / avg_room_v * assumed_wall_ratio);
+  float seed_count_f = (float)total_v / avg_room_v * assumed_wall_ratio;
+  /* This avoids roundf(), it is broken on my setup */
+  uint seed_count = (uint)(seed_count_f + 0.5f);
   arena->room_seed_count = seed_count;
   arena->room_seeds_finished = 0;
   arena->room_seeds = malloc(arena->room_seed_count * sizeof(RoomSeed));
@@ -164,6 +165,8 @@ void generate_arena(Arena* arena) {
   }
 
   while (arena->room_seeds_finished < arena->room_seed_count) {
+    printf("ITERATING ROOM SEEDING, FINISHED: %u\n",
+           arena->room_seeds_finished);
     for (i = 0; i < arena->room_seed_count; i++) {
       RoomSeed* seed = &arena->room_seeds[i];
 
@@ -207,8 +210,6 @@ void generate_arena(Arena* arena) {
       //     |
       // - --o--
       //
-      //
-      //
       // - --o--
       //     |
       // - --o--
@@ -239,6 +240,8 @@ void generate_arena(Arena* arena) {
   }
 
   /* TODO: Create passages */
+
+  /* TODO: Apply abstract structs to arena->data */
 }
 
 void init_lurkers(Arena* arena) {
