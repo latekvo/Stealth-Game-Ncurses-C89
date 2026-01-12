@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,20 +136,24 @@ void init_arena(Arena* arena, Player* player) {
   arena->lurker_count = 0;
   arena->lurker_capacity = 16;
   arena->lurkers = malloc(arena->lurker_capacity * sizeof(Lurker));
+  assert(arena->lurkers);
 
   arena->size_x = ARENA_SIZE;
   arena->size_y = ARENA_SIZE;
   arena->data = malloc(ARENA_SIZE * ARENA_SIZE * sizeof(uint));
+  assert(arena->data);
 
   uint total_v = arena->size_x * arena->size_y;
   uint avg_room_v = AVG_ROOM_SIDE * AVG_ROOM_SIDE;
-  float assumed_wall_ratio = 0.30;
+  float assumed_wall_ratio = 0.35;
   float seed_count_f = (float)total_v / avg_room_v * assumed_wall_ratio;
   /* This avoids roundf(), it is broken on my setup */
   uint seed_count = (uint)(seed_count_f + 0.5f);
+
   arena->room_seed_count = seed_count;
   arena->room_seeds_finished = 0;
   arena->room_seeds = malloc(arena->room_seed_count * sizeof(RoomSeed));
+  assert(arena->room_seeds);
 }
 
 void generate_arena(Arena* arena) {
@@ -363,9 +368,10 @@ int main() {
 
   initscr();
 
-  printw("Main menu placeholder. Press key to continue.");
-  refresh();
-  getch();
+  /* printw("Main menu placeholder. Press key to continue.");
+  // refresh();
+  // getch();
+  */
 
   init_arena(&arena, &player);
   generate_arena(&arena);
