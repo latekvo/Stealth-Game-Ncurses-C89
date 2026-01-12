@@ -271,9 +271,12 @@ void generate_arena(Arena* arena) {
 
     /* FIXME: This doesn't seem to work */
 
+    printf("y_s %u y_e %u span %u\n", y_start, y_end, x_span);
+
     uint y;
     for (y = y_start; y <= y_end; y++) {
-      memset(arena->data, FLOOR, x_span);
+      uint offset = x_start + y * arena->size_x;
+      memset(arena->data + offset, FLOOR, x_span);
     }
 
     uint lurker_spawn_idx = seed.center_x + seed.center_y * arena->size_x;
