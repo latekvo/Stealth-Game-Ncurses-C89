@@ -1,3 +1,4 @@
+#include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,19 @@ typedef struct {
   byte is_player_spawn;
   byte is_end_objective_room;
   byte is_room_finished;
+  /* For connectivity (doors) verification logic
+  // TODO: TBD
+  */
+  byte is_reachable;
+  byte needs_more_doors;
 } RoomSeed;
+
+typedef struct {
+  /* Not implementing >1 doors per room for now;
+  // uint room_a_id, room_b_id;
+  */
+  float a_x, a_y, b_x, b_y;
+} DoorwaySeed;
 
 typedef struct {
   uint size_x, size_y;
@@ -63,7 +76,7 @@ typedef struct {
   uint offset_x, offset_y;
 } View;
 
-/* TODO: Tile as a struct with properties */
+/* TODO: Tile as a struct with properties, not enum */
 enum ArenaTile {
   FLOOR = 0,
   FLOOR_MOSS,
@@ -197,8 +210,8 @@ void generate_arena(Arena* arena) {
         continue;
       }
 
-      float dir_pad = 2.0;
-      float pad = 2.0;
+      float dir_pad = 1.5;
+      float pad = 1.1;
 
       uint j;
       for (j = 0; j < arena->room_seed_count; j++) {
@@ -208,8 +221,8 @@ void generate_arena(Arena* arena) {
 
         RoomSeed* ck_seed = &arena->room_seeds[j];
 
-        /* Note: Could set block_* status for the ck_* too, but currently
-        //       doing that doesn't skip any logic, so no point in doing so.
+        /* Note: Could set block_* status for the ck_seed too, but currently
+        //       doing that doesn't skip any logic, so there is no point.
         */
 
         if (are_rooms_overlapping(seed, ck_seed, dir_pad, pad, pad, pad)) {
@@ -252,7 +265,13 @@ void generate_arena(Arena* arena) {
     }
   }
 
-  /* TODO: Create passages */
+  /* Keep iterating over all until all have req doorways.
+  // TODO: This algo.
+  */
+
+  for (i = 0; i < arena->room_seed_count; i++) {
+    RoomSeed seed = arena->room_seeds[i];
+  }
 
   for (i = 0; i < arena->room_seed_count; i++) {
     RoomSeed seed = arena->room_seeds[i];
@@ -268,10 +287,6 @@ void generate_arena(Arena* arena) {
     uint y_end = (uint)y_end_f;
 
     uint x_span = x_end - x_start;
-
-    /* FIXME: This doesn't seem to work */
-
-    printf("y_s %u y_e %u span %u\n", y_start, y_end, x_span);
 
     uint y;
     for (y = y_start; y <= y_end; y++) {
@@ -346,6 +361,12 @@ int main() {
   Arena arena;
   Player player;
 
+  initscr();
+
+  printw("Main menu placeholder. Press key to continue.");
+  refresh();
+  getch();
+
   init_arena(&arena, &player);
   generate_arena(&arena);
   init_lurkers(&arena);
@@ -368,6 +389,7 @@ int main() {
   /* DEBUG: Single frame render */
   int x, y;
   for (y = 0; y < ARENA_SIZE; y++) {
+    move(y, 0);
     for (x = 0; x < ARENA_SIZE; x++) {
       uint element = arena.data[x + y * ARENA_SIZE];
       char repr = '?';
@@ -396,15 +418,16 @@ int main() {
       /* 2x as workaround for 1:2 font dimensions
       // This will be redundant once Canvas works
       */
-      putchar(repr);
-      putchar(repr);
+      addch(repr);
+      addch(repr);
     }
-
-    putchar('\n');
   }
 
   free(arena.data);
   free(arena.lurkers);
+
+  getch();
+  endwin();
 
   return 0;
 }
