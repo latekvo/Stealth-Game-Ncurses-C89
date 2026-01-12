@@ -28,7 +28,7 @@ enum LurkerStatus {
 
 typedef struct {
   uint center_x, center_y;
-  uint growth_vel_x, growth_vel_y;
+  float growth_vel_x, growth_vel_y;
   uint total_door_count;
   float radius_l, radius_r, radius_t, radius_b;
   byte block_l, block_r, block_t, block_b;
@@ -97,21 +97,17 @@ byte are_rooms_overlapping(RoomSeed* a, RoomSeed* b, float pad_t, float pad_r,
   float b_t = b->center_y + b->radius_t;
   float b_b = b->center_y - b->radius_b;
 
-  /* Either b's vertex within a's horizontal path
-  // AND either b's vertex within a's vertical path
-  */
-
-  if ((b_t < a_t && b_t > a_b || b_b < a_t && b_b > a_b) &&
-      (b_l < a_r && b_l > a_l || b_r < a_r && b_r > a_l)) {
-    return 1;
-  }
-
-  /* FIXME: Bounds checks shouldn't be here, but it's the simplest for now */
+  /* FIXME: Bounds checks shouldn't be here, but it's the simplest for now. */
   if (a_r >= ARENA_SIZE || a_l <= 0 || a_t >= ARENA_SIZE || a_b < 0) {
     return 1;
   }
 
-  return 0;
+  /* Each of these cases guarantees separation */
+  if (a_r < b_l || a_l > b_r || a_t < b_b || a_b > b_t) {
+    return 0;
+  }
+
+  return 1;
 }
 
 float rand_f(float min, float max) {
@@ -201,35 +197,40 @@ void generate_arena(Arena* arena) {
         continue;
       }
 
-      float padding = 2.0;
+      float dir_pad = 2.0;
+      float pad = 2.0;
 
       uint j;
-      for (j = 0; j < i; j++) {
+      for (j = 0; j < arena->room_seed_count; j++) {
+        if (i == j) {
+          continue;
+        }
+
         RoomSeed* ck_seed = &arena->room_seeds[j];
 
         /* Note: Could set block_* status for the ck_* too, but currently
         //       doing that doesn't skip any logic, so no point in doing so.
         */
 
-        if (are_rooms_overlapping(seed, ck_seed, padding, 0., 0., 0.)) {
+        if (are_rooms_overlapping(seed, ck_seed, dir_pad, pad, pad, pad)) {
           seed->block_t = 1;
         }
 
-        if (are_rooms_overlapping(seed, ck_seed, 0., padding, 0., 0.)) {
+        if (are_rooms_overlapping(seed, ck_seed, pad, dir_pad, pad, pad)) {
           seed->block_r = 1;
         }
 
-        if (are_rooms_overlapping(seed, ck_seed, 0., 0., padding, 0.)) {
+        if (are_rooms_overlapping(seed, ck_seed, pad, pad, dir_pad, pad)) {
           seed->block_b = 1;
         }
 
-        if (are_rooms_overlapping(seed, ck_seed, 0., 0., 0., padding)) {
+        if (are_rooms_overlapping(seed, ck_seed, pad, pad, pad, dir_pad)) {
           seed->block_l = 1;
         }
       }
 
       if (!seed->block_t) {
-        seed->radius_t -= seed->growth_vel_y;
+        seed->radius_t += seed->growth_vel_y;
       }
 
       if (!seed->block_b) {
@@ -237,7 +238,7 @@ void generate_arena(Arena* arena) {
       }
 
       if (!seed->block_l) {
-        seed->radius_l -= seed->growth_vel_x;
+        seed->radius_l += seed->growth_vel_x;
       }
 
       if (!seed->block_r) {
@@ -267,6 +268,8 @@ void generate_arena(Arena* arena) {
     uint y_end = (uint)y_end_f;
 
     uint x_span = x_end - x_start;
+
+    /* FIXME: This doesn't seem to work */
 
     uint y;
     for (y = y_start; y <= y_end; y++) {
