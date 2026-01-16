@@ -63,13 +63,24 @@ typedef struct {
   uint room_seeds_finished;
 } Arena;
 
+typedef enum {
+  RAY_COLOR_CODE = 1,
+  FLOOR_COLOR_CODE,
+  WALL_COLOR_CODE,
+} ColorCode;
+
+typedef struct {
+  byte can_light_pass;
+  char color_code;
+  char display_char;
+} CanvasTile;
+
 typedef struct {
   uint size_x, size_y;
-  uint player_x, player_y; /* may differ from Arena, needed for View */
+  float scale_x, scale_y;
   byte enable_fog_of_war;
   byte enable_coloring;
-  byte enable_shading;
-  char* data;
+  CanvasTile* data;
 } Canvas;
 
 typedef struct {
@@ -154,6 +165,22 @@ void init_arena(Arena* arena, Player* player) {
   arena->room_seeds_finished = 0;
   arena->room_seeds = malloc(arena->room_seed_count * sizeof(RoomSeed));
   assert(arena->room_seeds);
+}
+
+void init_canvas(Canvas* canvas, Arena* arena) {
+  canvas->size_x = arena->size_x * 2;
+  canvas->size_y = arena->size_y;
+  canvas->scale_x = 2.0;
+  canvas->scale_y = 1.0;
+
+  /* TODO: Implement both, they should both be v. simple to do */
+  canvas->enable_coloring = 1;
+  canvas->enable_fog_of_war = 0;
+
+  uint max_round_err = 2;
+  uint tilecount = (uint)(canvas->size_x * canvas->scale_x * canvas->size_y *
+                          canvas->scale_y);
+  canvas->data = malloc((tilecount + max_round_err) * sizeof(CanvasTile));
 }
 
 void generate_arena(Arena* arena) {
@@ -362,11 +389,91 @@ void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta) {
   }
 }
 
+/* Hardcoding 50 rays is fine for now */
+const float DETECTION_RAYS = 50;
+
+void draw_lurker_rays(Canvas* canvas, Arena* arena) {
+  Lurker* lurkers = arena->lurkers;
+  uint lurker_count = arena->lurker_count;
+
+  /* Lurker rays have special drawing requirements:
+  // - They have to operate on the final canvas for higher resolution
+  // - They have to collide with visual walls, not their abstract notations.
+  //   - Otherwise we'll have the rays clip fine edges (e.g. 0.1 pos diff).
+  */
+
+  uint i;
+  for (i = 0; i < lurker_count; i++) {
+    Lurker* lurker = &lurkers[i];
+    float pos_x = lurker->position_x;
+    float pos_y = lurker->position_y;
+    float heading = lurker->azimuth_current_rad;
+
+    /* TODO: sin and cos of delta between rays can be precomputed,
+    //       then applied to a unit vec of the heading
+    */
+
+    float min = heading - lurker->detection_cone_halfangle_rad;
+    float max = heading + lurker->detection_cone_halfangle_rad;
+    float span = max - min;
+    float delta = span / DETECTION_RAYS;
+
+    float angle;
+    for (angle = min; angle < max; angle += delta) {
+      float ray_x = pos_x * canvas->scale_x;
+      float ray_y = pos_y * canvas->scale_y;
+      float vel_x = 0.f, vel_y = 0.f;
+      CanvasTile* tile =
+          &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
+
+      // TODO: Maybe add max beam range? Don't do iter (!), just compute diag
+
+      while (tile->can_light_pass) {
+        tile = &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
+        ray_x += vel_x * canvas->scale_x;
+        ray_y += vel_y * canvas->scale_y;
+
+        tile->display_char = 'O';
+        tile->color_code = RAY_COLOR_CODE;
+      }
+    }
+  }
+}
+
+void draw_lurkers(Canvas* canvas, Arena* arena, float time_delta) {
+  /* TBD
+  //
+  */
+  Lurker* lurkers = arena->lurkers;
+}
+
+void print_canvas(Canvas* canvas) {
+  /* TBD
+  //
+  */
+};
+
 int main() {
   Arena arena;
   Player player;
+  Canvas canvas;
+  View view;
+
+  /* TODO: Isolate this guard and init_pair(s)
+  // if (has_colors() == 0) {
+  //   endwin();
+  //   printf("Color not supported. Color support is required\n");
+  //   exit(1);
+  // }
+
+  // init_pair(RAY_COLOR_CODE, COLOR_RED, COLOR_RED);
+  // init_pair(WALL_COLOR_CODE, COLOR_BLACK, COLOR_WHITE);
+  // init_pair(FLOOR_COLOR_CODE, COLOR_WHITE, COLOR_BLACK);
+  */
 
   initscr();
+  cbreak();
+  noecho();
 
   /* printw("Main menu placeholder. Press key to continue.");
   // refresh();
@@ -374,25 +481,13 @@ int main() {
   */
 
   init_arena(&arena, &player);
+  init_canvas(&canvas, &arena);
   generate_arena(&arena);
   init_lurkers(&arena);
 
   float time_delta = 1.0;
 
-  while (0) {
-    /* TODO:
-    // - Calc time_delta (but using it for sleep is probs good enough)
-    // - User inputs
-    // - Draw Canvas
-    // - Draw View
-    // - Add coloring according to ascii (probs simpler than metadata)
-    // - Render (see if overwriting rather than redrawing is feasible)
-    */
-
-    update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
-  }
-
-  /* DEBUG: Single frame render */
+  /* FIXME: DEBUG: Single frame render */
   int x, y;
   for (y = 0; y < ARENA_SIZE; y++) {
     move(y, 0);
@@ -429,8 +524,31 @@ int main() {
     }
   }
 
+  while (1) {
+    /* TODO:
+    // - Calc time_delta (but using it for sleep is probs good enough)
+    // - User inputs (i'm reading you can add timeout to getch())
+    // - Draw Canvas
+    // - Draw View
+    // - Add coloring according to ascii (probs simpler than metadata)
+    // - Render (see if overwriting rather than redrawing is feasible)
+    */
+
+    update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
+    draw_lurker_rays(&canvas, &arena);
+    draw_lurkers(&canvas, &arena, time_delta);
+
+    print_canvas(&canvas);
+
+    /* FIXME: Temporary replacement for timer (╥﹏╥) */
+    getch();
+    refresh();
+  }
+
+  /* TODO: Check if we really have to free if we're exiting anyways */
   free(arena.data);
   free(arena.lurkers);
+  free(canvas.data);
 
   getch();
   endwin();
