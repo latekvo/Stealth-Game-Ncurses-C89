@@ -67,6 +67,8 @@ typedef enum {
   RAY_COLOR_CODE = 1,
   FLOOR_COLOR_CODE,
   WALL_COLOR_CODE,
+  EXIT_COLOR_CODE,
+  SIDE_GOAL_COLOR_CODE,
 } ColorCode;
 
 typedef struct {
@@ -429,6 +431,7 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
       // TODO: Maybe add max beam range? Don't do iter (!), just compute diag
 
       while (tile->can_light_pass) {
+        printf("FOO");
         tile = &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
         ray_x += vel_x * canvas->scale_x;
         ray_y += vel_y * canvas->scale_y;
@@ -447,10 +450,66 @@ void draw_lurkers(Canvas* canvas, Arena* arena, float time_delta) {
   Lurker* lurkers = arena->lurkers;
 }
 
+void draw_arena(Canvas* canvas, Arena* arena) {
+  int x, y;
+  for (y = 0; y < ARENA_SIZE; y++) {
+    move(y, 0);
+    for (x = 0; x < ARENA_SIZE; x++) {
+      uint element = arena->data[x + y * ARENA_SIZE];
+      char repr = '?';
+      byte can_light_pass = 0;
+      byte color_code = FLOOR_COLOR_CODE;
+
+      switch (element) {
+        case FLOOR:
+          repr = ' ';
+          can_light_pass = 1;
+          break;
+        case WALL:
+          repr = '#';
+          color_code = WALL_COLOR_CODE;
+          break;
+        case PLAYER_SPAWN:
+          repr = 'P';
+          can_light_pass = 1;
+          break;
+        case LURKER_SPAWN:
+          repr = 'E';
+          can_light_pass = 1;
+          break;
+        case SIDE_OBJECTIVE:
+          repr = '$';
+          color_code = SIDE_GOAL_COLOR_CODE;
+          break;
+        case END_OBJECTIVE:
+          repr = '@';
+          color_code = EXIT_COLOR_CODE;
+          break;
+      }
+
+      uint c_pos = x * canvas->scale_x + y * canvas->scale_y * ARENA_SIZE;
+
+      /* TODO: Same for y */
+      uint x_off;
+      for (x_off = 0; x_off < canvas->scale_x; x_off++) {
+        canvas->data[c_pos + x_off].display_char = repr;
+        canvas->data[c_pos + x_off].can_light_pass = can_light_pass;
+        canvas->data[c_pos + x_off].color_code = color_code;
+      }
+    }
+  }
+}
+
 void print_canvas(Canvas* canvas) {
-  /* TBD
-  //
-  */
+  int x, y;
+  for (y = 0; y < canvas->size_y; y++) {
+    move(y, 0);
+    for (x = 0; x < canvas->size_x; x++) {
+      CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
+      attron(COLOR_PAIR(tile->color_code));
+      addch(tile->display_char);
+    }
+  }
 };
 
 int main() {
@@ -459,26 +518,26 @@ int main() {
   Canvas canvas;
   View view;
 
-  /* TODO: Isolate this guard and init_pair(s)
-  // if (has_colors() == 0) {
-  //   endwin();
-  //   printf("Color not supported. Color support is required\n");
-  //   exit(1);
-  // }
-
-  // init_pair(RAY_COLOR_CODE, COLOR_RED, COLOR_RED);
-  // init_pair(WALL_COLOR_CODE, COLOR_BLACK, COLOR_WHITE);
-  // init_pair(FLOOR_COLOR_CODE, COLOR_WHITE, COLOR_BLACK);
-  */
+  /* TODO: Remove this, but for now this simplifies debug */
+  setvbuf(stdout, NULL, _IONBF, 0);
 
   initscr();
   cbreak();
   noecho();
+  start_color();
 
-  /* printw("Main menu placeholder. Press key to continue.");
-  // refresh();
-  // getch();
-  */
+  /* TODO: Isolate this guard and init_pair(s) */
+  if (has_colors() == 0) {
+    endwin();
+    printf("Color not supported. Color support is required\n");
+    exit(1);
+  }
+
+  init_pair(RAY_COLOR_CODE, COLOR_RED, COLOR_RED);
+  init_pair(WALL_COLOR_CODE, COLOR_BLACK, COLOR_WHITE);
+  init_pair(FLOOR_COLOR_CODE, COLOR_WHITE, COLOR_BLACK);
+  init_pair(EXIT_COLOR_CODE, COLOR_CYAN, COLOR_YELLOW);
+  init_pair(SIDE_GOAL_COLOR_CODE, COLOR_YELLOW, COLOR_CYAN);
 
   init_arena(&arena, &player);
   init_canvas(&canvas, &arena);
@@ -486,43 +545,6 @@ int main() {
   init_lurkers(&arena);
 
   float time_delta = 1.0;
-
-  /* FIXME: DEBUG: Single frame render */
-  int x, y;
-  for (y = 0; y < ARENA_SIZE; y++) {
-    move(y, 0);
-    for (x = 0; x < ARENA_SIZE; x++) {
-      uint element = arena.data[x + y * ARENA_SIZE];
-      char repr = '?';
-
-      switch (element) {
-        case FLOOR:
-          repr = ' ';
-          break;
-        case WALL:
-          repr = '#';
-          break;
-        case PLAYER_SPAWN:
-          repr = 'P';
-          break;
-        case LURKER_SPAWN:
-          repr = 'E';
-          break;
-        case SIDE_OBJECTIVE:
-          repr = '$';
-          break;
-        case END_OBJECTIVE:
-          repr = '@';
-          break;
-      }
-
-      /* 2x as workaround for 1:2 font dimensions
-      // This will be redundant once Canvas works
-      */
-      addch(repr);
-      addch(repr);
-    }
-  }
 
   while (1) {
     /* TODO:
@@ -535,14 +557,19 @@ int main() {
     */
 
     update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
+
+    draw_arena(&canvas, &arena);
+    printf("FOc");
     draw_lurker_rays(&canvas, &arena);
+    printf("FOb");
     draw_lurkers(&canvas, &arena, time_delta);
+    printf("FOa");
 
     print_canvas(&canvas);
 
     /* FIXME: Temporary replacement for timer (╥﹏╥) */
-    getch();
     refresh();
+    getch();
   }
 
   /* TODO: Check if we really have to free if we're exiting anyways */
