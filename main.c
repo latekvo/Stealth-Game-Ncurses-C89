@@ -70,6 +70,7 @@ typedef enum {
   WALL_COLOR_CODE,
   EXIT_COLOR_CODE,
   SIDE_GOAL_COLOR_CODE,
+  ERROR_COLOR_CODE,
 } ColorCode;
 
 typedef struct {
@@ -183,7 +184,19 @@ void init_canvas(Canvas* canvas, Arena* arena) {
   uint max_round_err = 2;
   uint tilecount = (uint)(canvas->size_x * canvas->scale_x * canvas->size_y *
                           canvas->scale_y);
+
   canvas->data = malloc((tilecount + max_round_err) * sizeof(CanvasTile));
+
+  /* FIXME: This is redundant, only useful for debugging */
+  uint x, y, pos;
+  for (y = 0; y < canvas->size_x; y++) {
+    for (x = 0; x < canvas->size_x; x++) {
+      pos = x + y * canvas->size_x;
+      canvas->data[pos].can_light_pass = 0;
+      canvas->data[pos].color_code = ERROR_COLOR_CODE;
+      canvas->data[pos].display_char = '?';
+    }
+  }
 }
 
 void generate_arena(Arena* arena) {
@@ -436,7 +449,7 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
       */
 
       while (tile->can_light_pass) {
-        tile->display_char = 'O';
+        tile->display_char = '+';
         tile->color_code = RAY_COLOR_CODE;
 
         tile = &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
@@ -456,10 +469,9 @@ void draw_lurkers(Canvas* canvas, Arena* arena, float time_delta) {
 
 void draw_arena(Canvas* canvas, Arena* arena) {
   int x, y;
-  for (y = 0; y < ARENA_SIZE; y++) {
-    move(y, 0);
-    for (x = 0; x < ARENA_SIZE; x++) {
-      uint element = arena->data[x + y * ARENA_SIZE];
+  for (y = 0; y < arena->size_x; y++) {
+    for (x = 0; x < arena->size_x; x++) {
+      uint element = arena->data[x + y * arena->size_x];
       char repr = '?';
       byte can_light_pass = 0;
       byte color_code = FLOOR_COLOR_CODE;
@@ -486,12 +498,12 @@ void draw_arena(Canvas* canvas, Arena* arena) {
           color_code = SIDE_GOAL_COLOR_CODE;
           break;
         case END_OBJECTIVE:
-          repr = '@';
+          repr = '%';
           color_code = EXIT_COLOR_CODE;
           break;
       }
 
-      uint c_pos = x * canvas->scale_x + y * canvas->scale_y * ARENA_SIZE;
+      uint c_pos = x * canvas->scale_x + y * canvas->scale_y * canvas->size_x;
 
       /* TODO: Same for y */
       uint x_off;
@@ -509,8 +521,8 @@ void print_canvas(Canvas* canvas) {
   for (y = 0; y < canvas->size_y; y++) {
     move(y, 0);
     for (x = 0; x < canvas->size_x; x++) {
-      move(y, x);
       CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
+      printf("%c\n", tile->display_char);
       attron(COLOR_PAIR(tile->color_code));
       addch(tile->display_char);
     }
@@ -543,6 +555,7 @@ int main() {
   init_pair(FLOOR_COLOR_CODE, COLOR_WHITE, COLOR_BLACK);
   init_pair(EXIT_COLOR_CODE, COLOR_CYAN, COLOR_YELLOW);
   init_pair(SIDE_GOAL_COLOR_CODE, COLOR_YELLOW, COLOR_CYAN);
+  init_pair(ERROR_COLOR_CODE, COLOR_YELLOW, COLOR_MAGENTA);
 
   init_arena(&arena, &player);
   init_canvas(&canvas, &arena);
