@@ -105,19 +105,6 @@ void draw_arena(Canvas* canvas, Arena* arena) {
   }
 }
 
-void print_canvas(Canvas* canvas) {
-  int x, y;
-  for (y = 0; y < canvas->size_y; y++) {
-    move(y, 0);
-    for (x = 0; x < canvas->size_x; x++) {
-      CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
-      printf("%c\n", tile->display_char);
-      attron(COLOR_PAIR(tile->color_code));
-      addch(tile->display_char);
-    }
-  }
-};
-
 int main() {
   Arena arena;
   Player player;
@@ -130,22 +117,8 @@ int main() {
   initscr();
   cbreak();
   noecho();
-  start_color();
 
-  /* TODO: Isolate this guard and init_pair(s) */
-  if (has_colors() == 0) {
-    endwin();
-    printf("Color not supported. Color support is required\n");
-    exit(1);
-  }
-
-  init_pair(RAY_COLOR_CODE, COLOR_RED, COLOR_RED);
-  init_pair(WALL_COLOR_CODE, COLOR_BLACK, COLOR_WHITE);
-  init_pair(FLOOR_COLOR_CODE, COLOR_WHITE, COLOR_BLACK);
-  init_pair(EXIT_COLOR_CODE, COLOR_CYAN, COLOR_YELLOW);
-  init_pair(SIDE_GOAL_COLOR_CODE, COLOR_YELLOW, COLOR_CYAN);
-  init_pair(ERROR_COLOR_CODE, COLOR_YELLOW, COLOR_MAGENTA);
-
+  init_colors();
   init_arena(&arena, &player);
   init_canvas(&canvas, &arena);
   generate_arena(&arena);
@@ -172,8 +145,8 @@ int main() {
     print_canvas(&canvas);
 
     /* FIXME: Temporary replacement for timer (╥﹏╥) */
-    refresh();
     getch();
+    refresh();
   }
 
   /* TODO: Check if we really have to free if we're exiting anyways */

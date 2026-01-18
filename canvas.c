@@ -1,5 +1,6 @@
 #include "canvas.h"
 
+#include <ncurses.h>
 #include <stdlib.h>
 
 #include "colors.h"
@@ -31,3 +32,17 @@ void init_canvas(Canvas* canvas, Arena* arena) {
     }
   }
 }
+
+void print_canvas(Canvas* canvas) {
+  int x, y;
+  for (y = 0; y < canvas->size_y; y++) {
+    move(y, 0);
+    for (x = 0; x < canvas->size_x; x++) {
+      CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
+      printf("%c\n", tile->display_char);
+      attron(COLOR_PAIR(tile->color_code));
+      addch(tile->display_char);
+    }
+  }
+};
+

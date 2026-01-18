@@ -10,4 +10,6 @@ typedef enum {
   ERROR_COLOR_CODE,
 } ColorCode;
 
+void init_colors();
+
 #endif

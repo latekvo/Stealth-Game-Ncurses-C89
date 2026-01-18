@@ -19,5 +19,6 @@ typedef struct {
 } Canvas;
 
 void init_canvas(Canvas* canvas, Arena* arena);
+void print_canvas(Canvas* canvas);
 
 #endif
