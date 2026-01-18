@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -419,25 +420,28 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
     float max = heading + lurker->detection_cone_halfangle_rad;
     float span = max - min;
     float delta = span / DETECTION_RAYS;
+    float ray_step = 0.3;
 
     float angle;
     for (angle = min; angle < max; angle += delta) {
       float ray_x = pos_x * canvas->scale_x;
       float ray_y = pos_y * canvas->scale_y;
-      float vel_x = 0.f, vel_y = 0.f;
+      float vel_x = cos(angle) * ray_step;
+      float vel_y = sin(angle) * ray_step;
       CanvasTile* tile =
           &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
 
-      // TODO: Maybe add max beam range? Don't do iter (!), just compute diag
+      /* TODO: Maybe add max beam range? Don't do iter (!), just compute diag
+      //
+      */
 
       while (tile->can_light_pass) {
-        printf("FOO");
+        tile->display_char = 'O';
+        tile->color_code = RAY_COLOR_CODE;
+
         tile = &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
         ray_x += vel_x * canvas->scale_x;
         ray_y += vel_y * canvas->scale_y;
-
-        tile->display_char = 'O';
-        tile->color_code = RAY_COLOR_CODE;
       }
     }
   }
@@ -505,6 +509,7 @@ void print_canvas(Canvas* canvas) {
   for (y = 0; y < canvas->size_y; y++) {
     move(y, 0);
     for (x = 0; x < canvas->size_x; x++) {
+      move(y, x);
       CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
       attron(COLOR_PAIR(tile->color_code));
       addch(tile->display_char);
@@ -559,11 +564,8 @@ int main() {
     update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
 
     draw_arena(&canvas, &arena);
-    printf("FOc");
     draw_lurker_rays(&canvas, &arena);
-    printf("FOb");
     draw_lurkers(&canvas, &arena, time_delta);
-    printf("FOa");
 
     print_canvas(&canvas);
 
