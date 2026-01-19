@@ -39,7 +39,6 @@ void print_canvas(Canvas* canvas) {
     move(y, 0);
     for (x = 0; x < canvas->size_x; x++) {
       CanvasTile* tile = &canvas->data[x + y * canvas->size_x];
-      printf("%c\n", tile->display_char);
       attron(COLOR_PAIR(tile->color_code));
       addch(tile->display_char);
     }

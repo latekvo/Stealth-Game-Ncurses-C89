@@ -12,7 +12,7 @@ default: $(TARGET)
 $(TARGET): $(OBJECTS) 
 	gcc $(FLAGS) $(LINKS) -o $@ $^ 
 
-$(BUILD_DIR)%.o: $(subst .o,.c,$(notdir $@))
+$(BUILD_DIR)%.o: %.c
 	mkdir -p $(BUILD_DIR)
 	gcc $(FLAGS) -c -o $@ $(notdir $(subst .o,.c,$@))
 

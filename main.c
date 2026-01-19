@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "arena.h"
 #include "canvas.h"
 #include "colors.h"
+#include "debug.h"
 #include "lurker.h"
 #include "player.h"
 #include "rays.h"
@@ -36,7 +38,7 @@ void init_lurkers(Arena* arena) {
 
     Lurker new_lurker;
 
-    new_lurker.detection_cone_halfangle_rad = PI / 3;
+    new_lurker.detection_cone_halfangle_rad = PI / 4;
     new_lurker.min_velocity = 1.5;
     new_lurker.max_velocity = 3.0;
     new_lurker.position_x = pos_x;
@@ -51,9 +53,21 @@ void init_lurkers(Arena* arena) {
 
 void draw_lurkers(Canvas* canvas, Lurker* lurkers, uint lurker_count,
                   float time_delta) {
-  /* TBD
-  //
-  */
+  uint i, pos;
+  Lurker* lurker;
+  CanvasTile* tile;
+  for (i = 0; i < lurker_count; i++) {
+    lurker = &lurkers[i];
+
+    /* TODO: Draw over 4 tiles, not just 1 */
+
+    pos = lurker->position_x * canvas->scale_x +
+          lurker->position_y * canvas->scale_y * canvas->size_x;
+    tile = &canvas->data[pos];
+    tile->can_light_pass = 0;
+    tile->color_code = EXIT_COLOR_CODE;
+    tile->display_char = '@';
+  }
 }
 
 void draw_arena(Canvas* canvas, Arena* arena) {
@@ -124,9 +138,15 @@ int main() {
   generate_arena(&arena);
   init_lurkers(&arena);
 
+  /* TD logic copied from:
+  https://sourceware.org/glibc/manual/latest/html_mono/libc.html#Calculating-Elapsed-Time
+  */
+
+  clock_t start, end;
   float time_delta = 1.0;
 
   while (1) {
+    start = clock();
     /* TODO:
     // - Calc time_delta (but using it for sleep is probs good enough)
     // - User inputs (i'm reading you can add timeout to getch())
@@ -143,10 +163,13 @@ int main() {
     draw_lurkers(&canvas, arena.lurkers, arena.lurker_count, time_delta);
 
     print_canvas(&canvas);
+    print_fps(time_delta);
+    print_frame_number();
 
-    /* FIXME: Temporary replacement for timer (╥﹏╥) */
-    getch();
     refresh();
+
+    end = clock();
+    time_delta = ((float)(end - start)) / CLOCKS_PER_SEC;
   }
 
   /* TODO: Check if we really have to free if we're exiting anyways */

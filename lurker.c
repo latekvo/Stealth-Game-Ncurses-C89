@@ -10,6 +10,9 @@ void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta) {
   // NOTE: Using accel would yield more realistic look, i can imagine stiff rot
   // looking weird, unnatural, will fix this with azimuth target jitter
   // Is p-derived rebound needed? No, direction changes quickly either way
+  // NOTE: Also try playing around with halfangle variance
+  // - During rotations, decreasing it make things easier
+  // - Decreasing it with speed/total-energy would make thing more realistic
   */
 
   int i;

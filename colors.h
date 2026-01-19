@@ -8,6 +8,7 @@ typedef enum {
   EXIT_COLOR_CODE,
   SIDE_GOAL_COLOR_CODE,
   ERROR_COLOR_CODE,
+  TEXT_COLOR_CODE,
 } ColorCode;
 
 void init_colors();
