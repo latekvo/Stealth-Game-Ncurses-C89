@@ -6,8 +6,7 @@
 #include "canvas.h"
 #include "colors.h"
 
-/* Hardcoding 50 rays is fine for now */
-const float DETECTION_RAYS = 100;
+const float DETECTION_RAYS = 50;
 
 void draw_lurker_rays(Canvas* canvas, Arena* arena) {
   Lurker* lurkers = arena->lurkers;

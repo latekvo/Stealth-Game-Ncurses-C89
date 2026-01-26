@@ -119,9 +119,56 @@ void draw_arena(Canvas* canvas, Arena* arena) {
   }
 }
 
+void draw_player(Canvas* canvas, Arena* arena) {
+  uint c_pos = arena->player->position_x * canvas->scale_x +
+               arena->player->position_y * canvas->scale_y * canvas->size_x;
+
+  /* TODO: Same for y */
+  uint x_off;
+  for (x_off = 0; x_off < canvas->scale_x; x_off++) {
+    canvas->data[c_pos + x_off].display_char = '%';
+    canvas->data[c_pos + x_off].can_light_pass = 0;
+    canvas->data[c_pos + x_off].color_code = EXIT_COLOR_CODE;
+  }
+}
+
+void handle_input(Arena* arena, char key) {
+  uint d_x = 0, d_y = 0;
+
+  /* TODO: Implement velocity, dampening, etc */
+  switch (key) {
+    case 'w':
+      d_y = -1;
+      break;
+    case 'a':
+      d_x = -1;
+      break;
+    case 's':
+      d_y = 1;
+      break;
+    case 'd':
+      d_x = 1;
+      break;
+    default:
+      /* This should not be possible */
+      printw("ERROR: Unexpected input handled");
+      exit(1);
+      break;
+  }
+
+  uint pos_x = arena->player->position_x + d_x;
+  uint pos_y = arena->player->position_y + d_y;
+  uint pos_i = pos_x + pos_y * arena->size_x;
+
+  if (arena->data[pos_i] == FLOOR) {
+    arena->player->position_x = pos_x;
+    arena->player->position_y = pos_y;
+  }
+}
+
 int main() {
   Arena arena;
-  Player player;
+  Player player = {10, 10};
   Canvas canvas;
   /* View view; */
 
@@ -131,6 +178,8 @@ int main() {
   initscr();
   cbreak();
   noecho();
+  keypad(stdscr, TRUE);
+  nodelay(stdscr, TRUE);
 
   init_colors();
   init_arena(&arena, &player);
@@ -147,6 +196,24 @@ int main() {
 
   while (1) {
     start = clock();
+
+    char input;
+    while ((input = getch()) != ERR) {
+      switch (input) {
+        case 'w':
+        case 'a':
+        case 's':
+        case 'd':
+          handle_input(&arena, input);
+          break;
+        case 'q':
+          goto end_game_loop;
+          break;
+        default:
+          break;
+      }
+    }
+
     /* TODO:
     // - Calc time_delta (but using it for sleep is probs good enough)
     // - User inputs (i'm reading you can add timeout to getch())
@@ -159,18 +226,22 @@ int main() {
     update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
 
     draw_arena(&canvas, &arena);
+    draw_player(&canvas, &arena);
     draw_lurker_rays(&canvas, &arena);
     draw_lurkers(&canvas, arena.lurkers, arena.lurker_count, time_delta);
 
     print_canvas(&canvas);
     print_fps(time_delta);
     print_frame_number();
+    print_player_data(&player);
 
     refresh();
 
     end = clock();
     time_delta = ((float)(end - start)) / CLOCKS_PER_SEC;
   }
+
+end_game_loop:
 
   /* TODO: Check if we really have to free if we're exiting anyways */
   free(arena.data);
