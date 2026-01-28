@@ -11,3 +11,9 @@ float rand_f(float min, float max) {
 }
 
 float rand_ui(uint min, uint max) { return rand() % (max - min) + min; }
+
+float clampf(float value, float min, float max) {
+  const float t = value < min ? min : value;
+  return t > max ? max : t;
+}
+

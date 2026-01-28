@@ -14,12 +14,10 @@ enum LurkerStatus {
 
 typedef struct {
   float position_x, position_y;
-  float velocity, min_velocity, max_velocity;
+  float min_velocity, max_velocity;
   float detection_cone_halfangle_rad;
   float azimuth_target_rad, azimuth_current_rad;
   uint status;
 } Lurker;
-
-void update_lurkers(Lurker* lurkers, uint lurker_count, float time_delta);
 
 #endif

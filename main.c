@@ -10,6 +10,7 @@
 #include "colors.h"
 #include "debug.h"
 #include "lurker.h"
+#include "lurker_logic.h"
 #include "player.h"
 #include "rays.h"
 #include "utils.h"
@@ -43,8 +44,9 @@ void init_lurkers(Arena* arena) {
     new_lurker.max_velocity = 3.0;
     new_lurker.position_x = pos_x;
     new_lurker.position_y = pos_y;
-    new_lurker.velocity = 1.5;
     new_lurker.status = WALKING_OFFICE;
+    new_lurker.azimuth_current_rad = 0;
+    new_lurker.azimuth_target_rad = PI;
 
     arena->lurkers[arena->lurker_count] = new_lurker;
     arena->lurker_count += 1;
@@ -231,7 +233,7 @@ int main() {
     // - Render (see if overwriting rather than redrawing is feasible)
     */
 
-    update_lurkers(arena.lurkers, arena.lurker_count, time_delta);
+    update_lurkers(&arena, time_delta);
 
     draw_arena(&canvas, &arena);
     draw_player(&canvas, &arena);
@@ -372,4 +374,18 @@ end_game_loop:
 /*
 // In C, i have struct Foo in file foo.h, as well as init_foo(Foo *foo);
 // Struct Foo references a list of Bar
+*/
+
+/* In patrol mode, add preference for the lurker to snap to multiples of 45d
+// Add jitter to lurker's rotation, this way it's more realistic and prettier
+// Energy remains constant, when moving slower, it will turns faster.
+// 1. When azimuth target far off from actual, slow down
+// 2. As lurker is slow, it can rotate faster
+// 3. As alignment increases, so does speed
+// NOTE: Using accel would yield more realistic look, i can imagine stiff rot
+// looking weird, unnatural, will fix this with azimuth target jitter
+// Is p-derived rebound needed? No, direction changes quickly either way
+// NOTE: Also try playing around with halfangle variance
+// - During rotations, decreasing it make things easier
+// - Decreasing it with speed/total-energy would make thing more realistic
 */

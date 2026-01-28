@@ -11,4 +11,6 @@ extern const uint AVG_ROOM_SIDE;
 float rand_f(float min, float max);
 float rand_ui(uint min, uint max);
 
+float clampf(float value, float min, float max);
+
 #endif

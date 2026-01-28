@@ -41,6 +41,7 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
       float ray_y = pos_y * canvas->scale_y;
       float vel_x = cos(angle) * ray_step;
       float vel_y = sin(angle) * ray_step;
+
       CanvasTile* tile =
           &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
 
@@ -55,6 +56,10 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
         tile = &canvas->data[(uint)ray_x + (uint)ray_y * canvas->size_x];
         ray_x += vel_x * canvas->scale_x;
         ray_y += vel_y * canvas->scale_y;
+
+        if (ray_x <= 0 || ray_x >= arena->size_x - 1 || ray_y <= 0 ||
+            ray_y >= arena->size_y - 1) {
+        }
       }
     }
   }
