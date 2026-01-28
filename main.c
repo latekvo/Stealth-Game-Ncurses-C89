@@ -132,21 +132,25 @@ void draw_player(Canvas* canvas, Arena* arena) {
   }
 }
 
-void handle_input(Arena* arena, char key) {
+void handle_input(Arena* arena, int key) {
   uint d_x = 0, d_y = 0;
 
   /* TODO: Implement velocity, dampening, etc */
   switch (key) {
     case 'w':
+    case KEY_UP:
       d_y = -1;
       break;
     case 'a':
+    case KEY_LEFT:
       d_x = -1;
       break;
     case 's':
+    case KEY_DOWN:
       d_y = 1;
       break;
     case 'd':
+    case KEY_RIGHT:
       d_x = 1;
       break;
     default:
@@ -197,13 +201,17 @@ int main() {
   while (1) {
     start = clock();
 
-    char input;
+    int input;
     while ((input = getch()) != ERR) {
       switch (input) {
         case 'w':
         case 'a':
         case 's':
         case 'd':
+        case KEY_UP:
+        case KEY_DOWN:
+        case KEY_LEFT:
+        case KEY_RIGHT:
           handle_input(&arena, input);
           break;
         case 'q':
@@ -250,6 +258,9 @@ end_game_loop:
 
   getch();
   endwin();
+
+  printf("\nGame ended by player input.\n");
+  fflush(stdout);
 
   return 0;
 }
