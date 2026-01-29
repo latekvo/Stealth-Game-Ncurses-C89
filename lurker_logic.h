@@ -3,6 +3,7 @@
 
 #include "arena.h"
 
+void init_lurkers(Arena* arena);
 void update_lurkers(Arena* arena, float time_delta);
 
 #endif

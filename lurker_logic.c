@@ -8,6 +8,45 @@
 #include "lurker.h"
 #include "utils.h"
 
+void init_lurkers(Arena* arena) {
+  int i;
+  for (i = 0; i < arena->size_x * arena->size_y; i++) {
+    if (arena->data[i] != LURKER_SPAWN) {
+      continue;
+    }
+
+    /* TODO: Move entire lurker init logic to map generation
+    // - Removes need for LURKER_SPAWN, PLAYER_SPAWN, etc
+    // - Just as simple in handling if we isolate to add_lurker
+    */
+
+    arena->data[i] = FLOOR;
+
+    if (arena->lurker_count == arena->lurker_capacity) {
+      arena->lurker_capacity *= 2;
+      arena->lurkers = realloc(arena->lurkers, arena->lurker_capacity);
+    }
+
+    uint pos_x = i % arena->size_x;
+    uint pos_y = (i - pos_x) / arena->size_y;
+
+    Lurker new_lurker;
+
+    new_lurker.detection_cone_halfangle_rad = PI / 4;
+    new_lurker.min_velocity = 1.5;
+    new_lurker.max_velocity = 3.0;
+    new_lurker.position_x = pos_x;
+    new_lurker.position_y = pos_y;
+    new_lurker.status = WALKING_OFFICE;
+    new_lurker.azimuth_current_rad = 0;
+    new_lurker.azimuth_target_rad = PI;
+    new_lurker.patrol_direction_timer = 0;
+
+    arena->lurkers[arena->lurker_count] = new_lurker;
+    arena->lurker_count += 1;
+  }
+}
+
 void update_lurkers(Arena* arena, float time_delta) {
   const float EPSILON_FOR_JITTER = PI / 18;
   const float JITTER_RADIUS = PI / 12;
@@ -46,6 +85,8 @@ void update_lurkers(Arena* arena, float time_delta) {
         lurker->min_velocity;
     float velocity = move_speed_per_s * time_delta;
 
+    /* TODO: Getting weird random behaviour with OOB,
+     * check if velocity maybe is getting to some extremes */
     float vel_x = cos(az_curr) * velocity;
     float vel_y = sin(az_curr) * velocity;
 
@@ -53,13 +94,18 @@ void update_lurkers(Arena* arena, float time_delta) {
     uint pos_y = lurker->position_y + vel_y;
     uint pos_i = pos_x + pos_y * arena->size_x;
 
-    if (arena->data[pos_i] == FLOOR) {
+    if (pos_i >= 0 && pos_i < arena->size_x * arena->size_y &&
+        arena->data[pos_i] == FLOOR) {
       lurker->position_x = pos_x;
       lurker->position_y = pos_y;
     }
 
     float change_per_frame = change_per_s * time_delta;
     lurker->azimuth_current_rad = fmodf(az_curr + change_per_frame, PI * 2);
+    lurker->patrol_direction_timer += time_delta;
+
+    /* DEBUG: TODO remove this */
+    lurker->azimuth_target_rad += time_delta;
   }
 }
 

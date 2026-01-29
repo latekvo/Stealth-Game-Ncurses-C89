@@ -6,171 +6,16 @@
 #include <time.h>
 
 #include "arena.h"
+#include "arena_drawing.h"
 #include "canvas.h"
 #include "colors.h"
 #include "debug.h"
-#include "lurker.h"
+#include "input_handling.h"
+#include "lurker_drawing.h"
 #include "lurker_logic.h"
 #include "player.h"
+#include "player_drawing.h"
 #include "rays.h"
-#include "utils.h"
-
-void init_lurkers(Arena* arena) {
-  int i;
-  for (i = 0; i < arena->size_x * arena->size_y; i++) {
-    if (arena->data[i] != LURKER_SPAWN) {
-      continue;
-    }
-
-    /* TODO: Move entire lurker init logic to map generation
-    // - Removes need for LURKER_SPAWN, PLAYER_SPAWN, etc
-    // - Just as simple in handling if we isolate to add_lurker
-    */
-
-    arena->data[i] = FLOOR;
-
-    if (arena->lurker_count == arena->lurker_capacity) {
-      arena->lurker_capacity *= 2;
-      arena->lurkers = realloc(arena->lurkers, arena->lurker_capacity);
-    }
-
-    uint pos_x = i % arena->size_x;
-    uint pos_y = (i - pos_x) / arena->size_y;
-
-    Lurker new_lurker;
-
-    new_lurker.detection_cone_halfangle_rad = PI / 4;
-    new_lurker.min_velocity = 1.5;
-    new_lurker.max_velocity = 3.0;
-    new_lurker.position_x = pos_x;
-    new_lurker.position_y = pos_y;
-    new_lurker.status = WALKING_OFFICE;
-    new_lurker.azimuth_current_rad = 0;
-    new_lurker.azimuth_target_rad = PI;
-
-    arena->lurkers[arena->lurker_count] = new_lurker;
-    arena->lurker_count += 1;
-  }
-}
-
-void draw_lurkers(Canvas* canvas, Lurker* lurkers, uint lurker_count,
-                  float time_delta) {
-  uint i, pos;
-  Lurker* lurker;
-  CanvasTile* tile;
-  for (i = 0; i < lurker_count; i++) {
-    lurker = &lurkers[i];
-
-    /* TODO: Draw over 4 tiles, not just 1 */
-
-    pos = lurker->position_x * canvas->scale_x +
-          lurker->position_y * canvas->scale_y * canvas->size_x;
-    tile = &canvas->data[pos];
-    tile->can_light_pass = 0;
-    tile->color_code = EXIT_COLOR_CODE;
-    tile->display_char = '@';
-  }
-}
-
-void draw_arena(Canvas* canvas, Arena* arena) {
-  int x, y;
-  for (y = 0; y < arena->size_x; y++) {
-    for (x = 0; x < arena->size_x; x++) {
-      uint element = arena->data[x + y * arena->size_x];
-      char repr = '?';
-      byte can_light_pass = 0;
-      byte color_code = FLOOR_COLOR_CODE;
-
-      switch (element) {
-        case FLOOR:
-          repr = ' ';
-          can_light_pass = 1;
-          break;
-        case WALL:
-          repr = '#';
-          color_code = WALL_COLOR_CODE;
-          break;
-        case PLAYER_SPAWN:
-          repr = 'P';
-          can_light_pass = 1;
-          break;
-        case LURKER_SPAWN:
-          repr = 'E';
-          can_light_pass = 1;
-          break;
-        case SIDE_OBJECTIVE:
-          repr = '$';
-          color_code = SIDE_GOAL_COLOR_CODE;
-          break;
-        case END_OBJECTIVE:
-          repr = '%';
-          color_code = EXIT_COLOR_CODE;
-          break;
-      }
-
-      uint c_pos = x * canvas->scale_x + y * canvas->scale_y * canvas->size_x;
-
-      /* TODO: Same for y */
-      uint x_off;
-      for (x_off = 0; x_off < canvas->scale_x; x_off++) {
-        canvas->data[c_pos + x_off].display_char = repr;
-        canvas->data[c_pos + x_off].can_light_pass = can_light_pass;
-        canvas->data[c_pos + x_off].color_code = color_code;
-      }
-    }
-  }
-}
-
-void draw_player(Canvas* canvas, Arena* arena) {
-  uint c_pos = arena->player->position_x * canvas->scale_x +
-               arena->player->position_y * canvas->scale_y * canvas->size_x;
-
-  /* TODO: Same for y */
-  uint x_off;
-  for (x_off = 0; x_off < canvas->scale_x; x_off++) {
-    canvas->data[c_pos + x_off].display_char = '%';
-    canvas->data[c_pos + x_off].can_light_pass = 0;
-    canvas->data[c_pos + x_off].color_code = EXIT_COLOR_CODE;
-  }
-}
-
-void handle_input(Arena* arena, int key) {
-  uint d_x = 0, d_y = 0;
-
-  /* TODO: Implement velocity, dampening, etc */
-  switch (key) {
-    case 'w':
-    case KEY_UP:
-      d_y = -1;
-      break;
-    case 'a':
-    case KEY_LEFT:
-      d_x = -1;
-      break;
-    case 's':
-    case KEY_DOWN:
-      d_y = 1;
-      break;
-    case 'd':
-    case KEY_RIGHT:
-      d_x = 1;
-      break;
-    default:
-      /* This should not be possible */
-      printw("ERROR: Unexpected input handled");
-      exit(1);
-      break;
-  }
-
-  uint pos_x = arena->player->position_x + d_x;
-  uint pos_y = arena->player->position_y + d_y;
-  uint pos_i = pos_x + pos_y * arena->size_x;
-
-  if (arena->data[pos_i] == FLOOR) {
-    arena->player->position_x = pos_x;
-    arena->player->position_y = pos_y;
-  }
-}
 
 int main() {
   Arena arena;
@@ -206,20 +51,11 @@ int main() {
     int input;
     while ((input = getch()) != ERR) {
       switch (input) {
-        case 'w':
-        case 'a':
-        case 's':
-        case 'd':
-        case KEY_UP:
-        case KEY_DOWN:
-        case KEY_LEFT:
-        case KEY_RIGHT:
-          handle_input(&arena, input);
-          break;
         case 'q':
           goto end_game_loop;
           break;
         default:
+          handle_input(&arena, input);
           break;
       }
     }

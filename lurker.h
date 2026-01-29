@@ -18,6 +18,7 @@ typedef struct {
   float detection_cone_halfangle_rad;
   float azimuth_target_rad, azimuth_current_rad;
   uint status;
+  uint patrol_direction_timer;
 } Lurker;
 
 #endif

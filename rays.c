@@ -57,8 +57,9 @@ void draw_lurker_rays(Canvas* canvas, Arena* arena) {
         ray_x += vel_x * canvas->scale_x;
         ray_y += vel_y * canvas->scale_y;
 
-        if (ray_x <= 0 || ray_x >= arena->size_x - 1 || ray_y <= 0 ||
-            ray_y >= arena->size_y - 1) {
+        if (ray_x <= 0 || ray_x >= arena->size_x - 1 || /**/
+            ray_y <= 0 || ray_y >= arena->size_y - 1) {
+          break;
         }
       }
     }
