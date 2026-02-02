@@ -101,7 +101,7 @@ void update_lurkers(Arena* arena, float time_delta) {
     }
 
     float change_per_frame = change_per_s * time_delta;
-    lurker->azimuth_current_rad = fmodf(az_curr + change_per_frame, PI * 2);
+    lurker->azimuth_current_rad = fmodf(az_curr + change_per_frame, PI) + PI;
     lurker->patrol_direction_timer += time_delta;
 
     /* DEBUG: TODO remove this */

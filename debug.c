@@ -3,6 +3,7 @@
 #include <ncurses.h>
 
 #include "colors.h"
+#include "lurker.h"
 #include "player.h"
 #include "utils.h"
 
@@ -22,7 +23,19 @@ void print_frame_number() {
 }
 
 void print_player_data(Player* player) {
-  move(0, 25);
+  move(player->position_y - 1, player->position_x * 2 + 2);
   attron(COLOR_PAIR(TEXT_COLOR_CODE));
-  printw("Player x: %d y: %d", player->position_x, player->position_y);
+  printw("x: %d y: %d", player->position_x, player->position_y);
+}
+
+void print_lurker_data(Lurker* lurkers, uint lurker_count) {
+  uint i;
+  for (i = 0; i < lurker_count; i++) {
+    Lurker lurker = lurkers[i];
+    move(lurker.position_y - 1, lurker.position_x * 2 + 1);
+    attron(COLOR_PAIR(TEXT_COLOR_CODE));
+    printw("x: %u y: %u, r_t: %f, r_c: %f", (uint)lurker.position_x,
+           (uint)lurker.position_y, lurker.azimuth_target_rad,
+           lurker.azimuth_current_rad);
+  }
 }

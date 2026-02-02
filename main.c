@@ -2,7 +2,6 @@
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 #include "arena.h"
@@ -22,9 +21,6 @@ int main() {
   Player player = {10, 10};
   Canvas canvas;
   /* View view; */
-
-  /* TODO: Remove this, but for now this simplifies debug */
-  setvbuf(stdout, NULL, _IONBF, 0);
 
   initscr();
   cbreak();
@@ -60,14 +56,7 @@ int main() {
       }
     }
 
-    /* TODO:
-    // - Calc time_delta (but using it for sleep is probs good enough)
-    // - User inputs (i'm reading you can add timeout to getch())
-    // - Draw Canvas
-    // - Draw View
-    // - Add coloring according to ascii (probs simpler than metadata)
-    // - Render (see if overwriting rather than redrawing is feasible)
-    */
+    /* TODO: Wrap Canvas with a cropping, zoomed View */
 
     update_lurkers(&arena, time_delta);
 
@@ -80,7 +69,7 @@ int main() {
     print_fps(time_delta);
     print_frame_number();
     print_player_data(&player);
-
+    print_lurker_data(arena.lurkers, arena.lurker_count);
     refresh();
 
     end = clock();
@@ -89,7 +78,6 @@ int main() {
 
 end_game_loop:
 
-  /* TODO: Check if we really have to free if we're exiting anyways */
   free(arena.data);
   free(arena.lurkers);
   free(canvas.data);
